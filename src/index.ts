@@ -1,104 +1,4 @@
-// import joplin from 'api';
-// import { ToolbarButtonLocation } from 'api/types';
-// // const uslug = require('@joplin/fork-uslug');
-// // joplin.plugins.register({
-// // 	onStart: async function() {
-// // 		console.info('Hello world. Test plugin started!');
-// // 	},
-// // });
-// // const joplin = require('joplin-api');
-// const fs = (joplin as any).require('fs-extra');
-// const path = require('path');
 
-// // 导出笔记到指定目录下的文件
-// async function exportNotebook(notebookId, exportPath) {
-//   try {
-//     // 获取笔记本的所有笔记
-//     const notes = await joplin.data.get(['notes'], { notebook_id: notebookId });
-//     console.log(`导出笔记本：${notebookId}，共${notes.items.length}个笔记`);
-
-//     // 创建图片文件夹
-//     const imagesPath = path.join(exportPath, 'images');
-//     if (!fs.existsSync(imagesPath)) {
-//       fs.mkdirSync(imagesPath);
-//     }
-
-//     // 将笔记导出为Markdown格式的文件
-//     for (let i = 0; i < notes.items.length; i++) {
-//       const note = notes.items[i];
-//       const content = note.body || '';
-
-//       // 获取笔记中的图片附件
-//       const resources = await joplin.data.get(['resources'], { note_id: note.id });
-//       for (let j = 0; j < resources.items.length; j++) {
-//         const resource = resources.items[j];
-//         if (resource.mime === 'image/jpeg' || resource.mime === 'image/png') {
-//           // 将图片附件保存为文件
-//           const imagePath = path.join(imagesPath, `${resource.id}.${resource.file_extension}`);
-//           fs.writeFileSync(imagePath, await joplin.data.get(['resources', resource.id]));
-//         }
-//       }
-
-//       // 将笔记内容保存为Markdown文件
-//       fs.writeFileSync(`${exportPath}/${note.title}.md`, content);
-//     }
-
-//     console.log(`导出笔记本：${notebookId}，成功导出${notes.items.length}个笔记`);
-//   } catch (error) {
-//     console.error('导出笔记本失败', error);
-//   }
-// }
-// async function exportNoteImages(noteId) {
-//   const note = await joplin.data.get(['notes', noteId], { fields: ['id', 'title', 'body'] });
-
-//   // 用正则表达式匹配出所有的图片标签
-//   const imgRegex = /<img\s+[^>]*src="([^"]+)"[^>]*>/g;
-//   let match;
-//   while ((match = imgRegex.exec(note.body)) !== null) {
-//     const imgUrl = match[1];
-//     const imgData = await joplin.data.get(['resources', imgUrl], { fields: ['id', 'title', 'file_name', 'mime', 'data'] });
-//     const imgName = imgData.title || imgData.file_name || imgData.id;
-//     const imgExt = imgData.mime ? imgData.mime.split('/')[1] : 'jpg';
-
-//     const folderPath = `./${note.title}_images`;
-//     if (!fs.existsSync(folderPath)) {
-//       fs.mkdirSync(folderPath);
-//     }
-
-//     const filePath = `${folderPath}/${imgName}.${imgExt}`;
-//     fs.writeFileSync(filePath, imgData.data);
-//   }
-// }
-
-// joplin.commands.register({
-//   name: 'exportNoteImages',
-//   label: 'Export Note Images',
-//   iconName: 'fas fa-image',
-//   execute: async () => {
-//     const noteId = await joplin.workspace.selectedNoteIds();
-//     if (!noteId.length) {
-//       await joplin.views.dialogs.showMessageBox('Please select a note to export its images.');
-//       return;
-//     }
-//     await exportNoteImages(noteId[0]);
-//   },
-// });
-
-
-
-// // 注册导出笔记本的命令
-// joplin.plugins.register({
-//   onStart: async function() {
-//     await joplin.commands.register({
-//       name: 'exportNotebook',
-//       label: '导出笔记本',
-//       execute: async function(notebookId, exportPath) {
-//         await exportNotebook(notebookId, exportPath);
-//       }
-//     });
-//     await joplin.views.toolbarButtons.create('exportNoteImages', 'exportNoteImages', ToolbarButtonLocation.NoteToolbar);
-//   }
-// });
 import joplin from 'api';
 import { MenuItemLocation } from 'api/types';
 
@@ -214,12 +114,13 @@ joplin.plugins.register({
 				const filteredNotes = items.filter( note => {
 					return (note.parent_id === args[0]);
 				});
+				// const filteredNotes=items;
         if(ssg === 'hexo'){
           const folderName = basketFolder.title + '-' + basketFolder.id ;
 					await fs.mkdirp(path.join(dest_Path, 'source', '_posts'));//markdown
 
 					await fs.mkdirp(path.join(dest_Path, 'source' , 'img'));//static
-
+          //test
 					const resourceDestPath = (path.join(dest_Path, 'source' , 'img'));
 
 					for (var i = 0; i < filteredNotes.length; i++) {
@@ -309,6 +210,52 @@ joplin.plugins.register({
 		//---------created main button[entry point to plugin]
 		await joplin.views.menuItems.create('Export to SSG', 'staticSiteExporterDialog', MenuItemLocation.FolderContextMenu);
     // await joplin.views.menuItems.create('Export to SSG', 'staticSiteExporterDialog', MenuItemLocation.NoteListContextMenu);
-    
-	},
-});
+		
+	//export single note
+	await joplin.commands.register({
+		name: 'exportingNoteProcedure',
+		execute: async (...args) => {
+			
+			//---------prequesite variables
+			let ssg = args[1].basic_info.ssg;
+			let dest_Path = args[1].basic_info.dest_Path;
+			let frontMatter = args[1].basic_info.frontMatter;
+			alert(args[0]);
+			const note = await joplin.data.get(['notes', args[0]], { fields: ['id', 'title', 'body'] });
+			
+			// const filteredNotes=items;
+			if(ssg === 'hexo'){
+			// const folderName = basketFolder.title + '-' + basketFolder.id ;
+					await fs.mkdirp(path.join(dest_Path, 'source', '_posts'));//markdown
+					await fs.mkdirp(path.join(dest_Path, 'source' , 'img'));//static
+		//test
+					const resourceDestPath = (path.join(dest_Path, 'source' , 'img'));
+					await resourceFetcher(note, resourceDir, resourceDestPath, ssg);
+					note.body = frontMatter+ frontMatterCreator(note.title) + '\n' + note.body;//add hexo required frontMatter
+					fs.writeFile(path.join(dest_Path, 'source', '_posts', `${note.title}.md`), note.body);
+					
+		
+			}
+	}});
+	await joplin.commands.register({
+			name: 'staticSiteExporterDialog_Note',
+			label: 'Export Note to SSG',
+			execute: async (noteId: string[]) => {
+				const { id, formData } = await dialogs.open(ssg_dialog);
+				if (id == "submit") {
+					//---------form validation
+					if (!formData.basic_info.ssg) {
+						alert('Please choose one static site generator.');
+						return;
+					}
+					if (!path.isAbsolute(formData.basic_info.dest_Path)) {
+						alert('Provided path is not valid.')
+						return;
+					}
+					await joplin.commands.execute('exportingNoteProcedure', noteId[0] , formData);
+				}
+			},
+		});
+		await joplin.views.menuItems.create('Export Note to SSG','staticSiteExporterDialog_Note',MenuItemLocation.NoteListContextMenu);
+		}
+	});
