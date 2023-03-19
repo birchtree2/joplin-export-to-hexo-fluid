@@ -13,14 +13,29 @@ function titleCreator( title : string ) {
 	return (fPart + sPart);
 }
 //-------creates frontMatter for note as required in Hexo
-function frontMatterCreator(title: string){
+function frontMatterCreator(notetitle: string,newtitle: string, tags, categories, excerpt :string, extrafrontmatter :string){
     let frontMatter='---\n';
+	let title=newtitle;
+	if(newtitle === "") title=notetitle;
     frontMatter+=`title: ${title}\n`;
+	//date
     let today = new Date();//https://www.srcmini.com/3475.html
     let date = today.getFullYear() + '-' + (today.getMonth() + 1) + '-' + today.getDate() + ' '
                 + today.getHours() + ':' +today.getMinutes() + ':' + today.getSeconds();
     frontMatter+=`date: ${date}\n`;
-    frontMatter+=`excerpt: ${title}\n`
+	//tags
+	frontMatter+="tags:\n";
+	let taglist=tags.split(' ');
+	for(let i=0;i<taglist.length;i++){
+		frontMatter+=`- ${taglist[i]}\n`;
+	}
+	//categories
+	frontMatter+=`categories:\n- [${categories}]\n`;
+	//excerpt
+	if(excerpt === "") excerpt=title;
+    frontMatter+=`excerpt: ${excerpt}\n`;
+
+	frontMatter+=extrafrontmatter;
     frontMatter+='---'
     return frontMatter;
 }
@@ -33,15 +48,8 @@ async function resourceFetcher(note, resourceDir: string, destPath: string , ssg
 		const srcPath = path.join(resourceDir, `${resource.id}.${ext}`);
 		const dest_Path = path.join(destPath, resource.title)
 		await fs.copy(srcPath, dest_Path);
-		if (ssg === 'hugo') {
-			note.body = note.body.replace( `:/${resource.id}`,  `/resources/${resource.title}` );
-		} else if (ssg === 'gatsby') {
-			note.body = note.body.replace( `:/${resource.id}`,  path.join('..', '..', 'static' , `${resource.title}`));
-		} else if (ssg === 'jekyll') {
-			note.body = note.body.replace( `:/${resource.id}`, path.join('..', 'resources', `${resource.title}`));
-		} else if(ssg === 'hexo'){
-      note.body = note.body.replace( `:/${resource.id}`,  `/img/${resource.title}` );//extension has been added
-    }
+		note.body = note.body.replace( `:/${resource.id}`,  `/img/${resource.title}` );//extension has been added
+    
 	};
 };
 
@@ -62,24 +70,30 @@ joplin.plugins.register({
 			<div class="dialog-main">
 				<form id="swg-form" name="basic_info">
             	    <div class="field">
-						<p class="labels" >Choose your SSG (<span>*required</span>)</p>
-            <label for="hexo">Hexo</label>
-  						<input type="radio" id="hexo" name="ssg" value="hexo"><br>
-						<label for="hugo">Hugo</label>
-  						<input type="radio" id="hugo" name="ssg" value="hugo"><br>
-  						<label for="gatsby">Gatsby</label>
-  						<input type="radio" id="gatsby" name="ssg" value="gatsby"><br>
-  						<label for="jekyll">Jekyll</label>
-  						<input type="radio" id="jekyll" name="ssg" value="jekyll"><br>
-            	    </div>
-            	    <div class="field">
             	        <label class="block-element labels" for="dest_Path"> Project Path (<span>*required</span>) </label>
-					    <input class="block-element" id="dest_Path" type="text" name="dest_Path" required autocomplete placeholder="Paste the absolute path" />   
+					    <input class="block-element" id="dest_Path" type="text" name="dest_Path" required autocomplete placeholder="D:\\blog" />   
             	    </div>
+					</div class="field">
+					<label class="block-element labels" for="title"> Title(If left blank, will default to the note title.) </label>
+					<input class="block-element" id="title" type="text" name="title" required autocomplete placeholder="" />   
+					</div>
+					</div class="field">
+					<label class="block-element labels" for="tags"> Tags(separated by spaces)  </label>
+					<input class="block-element" id="tags" type="text" name="tags" required autocomplete placeholder="" />   
+					</div>
+					</div class="field">
+					<label class="block-element labels" for="categories"> Categories(separated by comma",")  </label>
+					<input class="block-element" id="categories" type="text" name="categories" required autocomplete placeholder="" />   
+					</div>
+					</div class="field">
+					<label class="block-element labels" for="excerpt"> Excerpt (<span>If left blank, will default to the article title.</span>) </label>
+					<input class="block-element" id="excerpt" type="text" name="excerpt" required autocomplete placeholder="" />   
+					</div>
             	    <div class="field">
-					    <label class="block-element labels" for="frontMatter" >Front Matter (<span>optional</span>) </label>
-					    <textarea placeholder="Type front matter here..." class="block-element" id = "frontMatter" rows = 10 cols="20" name="frontMatter"></textarea>
+					    <label class="block-element labels" for="frontMatter" >Extra Front Matter (<span>optional</span>) </label>
+					    <textarea placeholder="Type front matter here..." class="block-element" id = "frontMatter" rows = 4 cols="20" name="frontMatter"></textarea>
             	    </div>
+					
 				</form> 
 			</div>
 		</div>
@@ -106,81 +120,33 @@ joplin.plugins.register({
 			execute: async (...args) => {
 				
 				//---------prequesite variables
-				let ssg = args[1].basic_info.ssg;
+				// let ssg = args[1].basic_info.ssg;
+				
+				let title=args[1].basic_info.title;
+				let tags=args[1].basic_info.tags;
+				let categories=args[1].basic_info.categories;
+				let excerpt=args[1].basic_info.excerpt;
 				let dest_Path = args[1].basic_info.dest_Path;
 				let frontMatter = args[1].basic_info.frontMatter;
 				const basketFolder = await joplin.data.get(['folders', args[0]], { fields: ['id', 'title', 'body'] });
 				const { items } = await joplin.data.get(['notes'], { fields: ['id', 'title', 'body', 'parent_id'] });
+				// filteredNotes have unknown problem!!!
 				const filteredNotes = items.filter( note => {
 					return (note.parent_id === args[0]);
 				});
-				// const filteredNotes=items;
-        if(ssg === 'hexo'){
-          const folderName = basketFolder.title + '-' + basketFolder.id ;
-					await fs.mkdirp(path.join(dest_Path, 'source', '_posts'));//markdown
-
-					await fs.mkdirp(path.join(dest_Path, 'source' , 'img'));//static
-          //test
-					const resourceDestPath = (path.join(dest_Path, 'source' , 'img'));
-
-					for (var i = 0; i < filteredNotes.length; i++) {
-						const note = filteredNotes[i];
-						await resourceFetcher(note, resourceDir, resourceDestPath, ssg);
-						note.body = frontMatter+ frontMatterCreator(note.title) + '\n' + note.body;//add hexo required frontMatter
-						fs.writeFile(path.join(dest_Path, 'source', '_posts', `${note.title}.md`), note.body);
-					};
-        }else if (ssg === 'hugo') {
-					//---------handle exporting into hugo
-					const folderName = basketFolder.title + '-' + basketFolder.id ;
-					await fs.mkdirp(path.join(dest_Path, 'content', folderName));//markdown
-
-					await fs.mkdirp(path.join(dest_Path, 'static' , 'resources'));//static'
-
-					const resourceDestPath = (path.join(dest_Path, 'static' ,'resources'));
-
-					for (var i = 0; i < filteredNotes.length; i++) {
-						const note = filteredNotes[i];
-						await resourceFetcher(note, resourceDir, resourceDestPath, ssg);
-						note.body = frontMatter + '\n' + note.body;
-						fs.writeFile(path.join(dest_Path, 'content', folderName, `${note.title}.md`), note.body);
-					};
-				} else if (ssg === 'gatsby') {
-					//---------handle exporting into gatsby
-					await fs.mkdirp(path.join(dest_Path, 'src', 'markdown'));//markdown
-
-					fs.readdir(path.join(dest_Path, 'static'), async err => {
-						if (err) {
-							await fs.mkdirp( path.join( dest_Path , 'static' ) );//static
-						}
-						
-						const resourceDestPath = (path.join(dest_Path, 'static'));
-
-						for (var i = 0; i < filteredNotes.length; i++) {
-							const note = filteredNotes[i];
-							await resourceFetcher(note, resourceDir, resourceDestPath, ssg);
-							note.body = frontMatter + '\n' + note.body;
-							fs.writeFile(path.join(dest_Path, 'src', 'markdown', `${note.title}-${note.id}.md`), note.body);
-						};
-					});
-				} else if (ssg === 'jekyll') {
-					//---------handle exporting into gatsby
-					fs.readdir(path.join(dest_Path, '_posts'), async (err, files) => {
-						if (err) {
-							await fs.mkdirp( path.join( dest_Path , '_posts' ) );//markdowns
-						}
-						await fs.mkdirp(path.join(dest_Path, 'resources'));//static files
-
-						const resourceDestPath = (path.join(dest_Path , 'resources'));
-						
-						for(var i = 0; i < filteredNotes.length; i++) {
-							const note = filteredNotes[i];
-							await resourceFetcher( note , resourceDir , resourceDestPath , ssg  );
-							note.body = frontMatter + '\n' + note.body;
-							note.title = titleCreator(note.title);
-							fs.writeFile(path.join(dest_Path , '_posts' , `${note.title}-${note.id}.md`), note.body);
-						};
-					});
-                }
+				//
+          		const folderName = basketFolder.title + '-' + basketFolder.id ;
+				await fs.mkdirp(path.join(dest_Path, 'source', '_posts'));//markdown
+				await fs.mkdirp(path.join(dest_Path, 'source' , 'img'));//static
+				const resourceDestPath = (path.join(dest_Path, 'source' , 'img'));
+				for (var i = 0; i < filteredNotes.length; i++) {
+					const note = filteredNotes[i];
+					await resourceFetcher(note, resourceDir, resourceDestPath,"hexo");
+					note.body = frontMatterCreator(note.title,title,tags,categories,excerpt,frontMatter); 
+								+ '\n' + note.body;//add hexo required frontMatter
+					fs.writeFile(path.join(dest_Path, 'source', '_posts', `${note.title}.md`), note.body);
+				};
+        
             }
 		});
 		
@@ -217,25 +183,22 @@ joplin.plugins.register({
 		execute: async (...args) => {
 			
 			//---------prequesite variables
-			let ssg = args[1].basic_info.ssg;
+			// let ssg = args[1].basic_info.ssg;
+			let title=args[1].basic_info.title;
+			let tags=args[1].basic_info.tags;
+			let categories=args[1].basic_info.categories;
+			let excerpt=args[1].basic_info.excerpt;
 			let dest_Path = args[1].basic_info.dest_Path;
 			let frontMatter = args[1].basic_info.frontMatter;
-			alert(args[0]);
 			const note = await joplin.data.get(['notes', args[0]], { fields: ['id', 'title', 'body'] });
-			
-			// const filteredNotes=items;
-			if(ssg === 'hexo'){
-			// const folderName = basketFolder.title + '-' + basketFolder.id ;
-					await fs.mkdirp(path.join(dest_Path, 'source', '_posts'));//markdown
-					await fs.mkdirp(path.join(dest_Path, 'source' , 'img'));//static
-		//test
-					const resourceDestPath = (path.join(dest_Path, 'source' , 'img'));
-					await resourceFetcher(note, resourceDir, resourceDestPath, ssg);
-					note.body = frontMatter+ frontMatterCreator(note.title) + '\n' + note.body;//add hexo required frontMatter
-					fs.writeFile(path.join(dest_Path, 'source', '_posts', `${note.title}.md`), note.body);
-					
-		
-			}
+			await fs.mkdirp(path.join(dest_Path, 'source', '_posts'));//markdown
+			await fs.mkdirp(path.join(dest_Path, 'source' , 'img'));//static
+			const resourceDestPath = (path.join(dest_Path, 'source' , 'img'));
+			await resourceFetcher(note, resourceDir, resourceDestPath, "hexo");
+			note.body = frontMatterCreator(note.title,title,tags,categories,excerpt,frontMatter); 
+								+ '\n' + note.body;//add hexo required frontMatter//add hexo required frontMatter
+			fs.writeFile(path.join(dest_Path, 'source', '_posts', `${note.title}.md`), note.body);
+
 	}});
 	await joplin.commands.register({
 			name: 'staticSiteExporterDialog_Note',
@@ -244,10 +207,7 @@ joplin.plugins.register({
 				const { id, formData } = await dialogs.open(ssg_dialog);
 				if (id == "submit") {
 					//---------form validation
-					if (!formData.basic_info.ssg) {
-						alert('Please choose one static site generator.');
-						return;
-					}
+					
 					if (!path.isAbsolute(formData.basic_info.dest_Path)) {
 						alert('Provided path is not valid.')
 						return;
