@@ -13,10 +13,17 @@ function titleCreator( title : string ) {
 	return (fPart + sPart);
 }
 //-------creates frontMatter for note as required in Hexo
+function isEmptyStr(str){
+	if (str == 'undefined' || !str || !/[^\s]/.test(str)) {
+        return true;
+    } else {
+        return false;
+    }
+}
 function frontMatterCreator(notetitle: string,newtitle: string, tags, categories, excerpt :string, extrafrontmatter :string){
     let frontMatter='---\n';
-	let title=newtitle;
-	if(newtitle === "") title=notetitle;
+	let title=notetitle;
+	if(!isEmptyStr(newtitle)) title=newtitle;
     frontMatter+=`title: ${title}\n`;
 	//date
     let today = new Date();//https://www.srcmini.com/3475.html
@@ -24,19 +31,21 @@ function frontMatterCreator(notetitle: string,newtitle: string, tags, categories
                 + today.getHours() + ':' +today.getMinutes() + ':' + today.getSeconds();
     frontMatter+=`date: ${date}\n`;
 	//tags
-	frontMatter+="tags:\n";
-	let taglist=tags.split(' ');
-	for(let i=0;i<taglist.length;i++){
-		frontMatter+=`- ${taglist[i]}\n`;
+	if(!isEmptyStr(tags)){
+		frontMatter+="tags:\n";
+		let taglist=tags.split(' ');
+		for(let i=0;i<taglist.length;i++){
+			frontMatter+=`- ${taglist[i]}\n`;
+		}
 	}
 	//categories
-	frontMatter+=`categories:\n- [${categories}]\n`;
+	if(!isEmptyStr(categories)) frontMatter+=`categories:\n- [${categories}]\n`;
 	//excerpt
-	if(excerpt === "") excerpt=title;
+	if(isEmptyStr(excerpt)) excerpt=title;
     frontMatter+=`excerpt: ${excerpt}\n`;
-
-	frontMatter+=extrafrontmatter;
+	if(!isEmptyStr(extrafrontmatter))frontMatter+=extrafrontmatter+"\n";
     frontMatter+='---'
+	alert(frontMatter);
     return frontMatter;
 }
 //---------collecting and transfering the static file
@@ -73,24 +82,24 @@ joplin.plugins.register({
             	        <label class="block-element labels" for="dest_Path"> Project Path (<span>*required</span>) </label>
 					    <input class="block-element" id="dest_Path" type="text" name="dest_Path" required autocomplete placeholder="D:\\blog" />   
             	    </div>
-					</div class="field">
-					<label class="block-element labels" for="title"> Title(If left blank, will default to the note title.) </label>
-					<input class="block-element" id="title" type="text" name="title" required autocomplete placeholder="" />   
-					</div>
-					</div class="field">
-					<label class="block-element labels" for="tags"> Tags(separated by spaces)  </label>
-					<input class="block-element" id="tags" type="text" name="tags" required autocomplete placeholder="" />   
-					</div>
-					</div class="field">
-					<label class="block-element labels" for="categories"> Categories(separated by comma",")  </label>
-					<input class="block-element" id="categories" type="text" name="categories" required autocomplete placeholder="" />   
-					</div>
-					</div class="field">
-					<label class="block-element labels" for="excerpt"> Excerpt (<span>If left blank, will default to the article title.</span>) </label>
-					<input class="block-element" id="excerpt" type="text" name="excerpt" required autocomplete placeholder="" />   
-					</div>
+					<div class="field">
+            	        <label class="block-element labels" for="title"> Title </label>
+					    <input class="block-element" id="title" type="text" name="title" required autocomplete placeholder=" " />   
+            	    </div>
+					<div class="field">
+            	        <label class="block-element labels" for="tags"> Tags(separate by blanks)  </label>
+					    <input class="block-element" id="tags" type="text" name="tags" required autocomplete placeholder=" " />   
+            	    </div>
+					<div class="field">
+            	        <label class="block-element labels" for="categories"> Categories(separate by comma ',')  </label>
+					    <input class="block-element" id="categories" type="text" name="categories" required autocomplete placeholder=" " />   
+            	    </div>
+					<div class="field">
+            	        <label class="block-element labels" for="excerpt"> Excerpt </label>
+					    <input class="block-element" id="excerpt" type="text" name="excerpt" required autocomplete placeholder=" " />   
+            	    </div>
             	    <div class="field">
-					    <label class="block-element labels" for="frontMatter" >Extra Front Matter (<span>optional</span>) </label>
+					    <label class="block-element labels" for="frontMatter" >Front Matter (<span>optional</span>) </label>
 					    <textarea placeholder="Type front matter here..." class="block-element" id = "frontMatter" rows = 4 cols="20" name="frontMatter"></textarea>
             	    </div>
 					
@@ -100,7 +109,7 @@ joplin.plugins.register({
 		`);
 
 		//---------add the css file for form
-		await dialogs.addScript(ssg_dialog, './form.css');
+		// await dialogs.addScript(ssg_dialog, './form.css');
 
 		//---------setting controls of dialog
 		await dialogs.setButtons(ssg_dialog, [
@@ -115,6 +124,7 @@ joplin.plugins.register({
 		]);
 
 		/*******************Exporting Code*******************/
+		
 		await joplin.commands.register({
             name: 'exportingProcedure',
 			execute: async (...args) => {
@@ -122,12 +132,12 @@ joplin.plugins.register({
 				//---------prequesite variables
 				// let ssg = args[1].basic_info.ssg;
 				
-				let title=args[1].basic_info.title;
-				let tags=args[1].basic_info.tags;
-				let categories=args[1].basic_info.categories;
-				let excerpt=args[1].basic_info.excerpt;
-				let dest_Path = args[1].basic_info.dest_Path;
-				let frontMatter = args[1].basic_info.frontMatter;
+				const title=args[1].basic_info.title;
+				const tags=args[1].basic_info.tags;
+				const categories=args[1].basic_info.categories;
+				const excerpt=args[1].basic_info.excerpt;
+				const dest_Path = args[1].basic_info.dest_Path;
+				const frontMatter = args[1].basic_info.frontMatter;
 				const basketFolder = await joplin.data.get(['folders', args[0]], { fields: ['id', 'title', 'body'] });
 				const { items } = await joplin.data.get(['notes'], { fields: ['id', 'title', 'body', 'parent_id'] });
 				// filteredNotes have unknown problem!!!
@@ -153,6 +163,7 @@ joplin.plugins.register({
 		/*******************Driver Code*******************/
 
 		//---------respective command for main button
+		
 		await joplin.commands.register({
             name: 'staticSiteExporterDialog',
             label: 'Export to SSG',
@@ -176,7 +187,7 @@ joplin.plugins.register({
 		//---------created main button[entry point to plugin]
 		await joplin.views.menuItems.create('Export to SSG', 'staticSiteExporterDialog', MenuItemLocation.FolderContextMenu);
     // await joplin.views.menuItems.create('Export to SSG', 'staticSiteExporterDialog', MenuItemLocation.NoteListContextMenu);
-		
+	
 	//export single note
 	await joplin.commands.register({
 		name: 'exportingNoteProcedure',
@@ -184,19 +195,20 @@ joplin.plugins.register({
 			
 			//---------prequesite variables
 			// let ssg = args[1].basic_info.ssg;
-			let title=args[1].basic_info.title;
-			let tags=args[1].basic_info.tags;
-			let categories=args[1].basic_info.categories;
-			let excerpt=args[1].basic_info.excerpt;
-			let dest_Path = args[1].basic_info.dest_Path;
-			let frontMatter = args[1].basic_info.frontMatter;
+			const dest_Path = args[1].basic_info.dest_Path;
+			const title=args[1].basic_info.title;
+			const tags=args[1].basic_info.tags;
+			const categories=args[1].basic_info.categories;
+			const excerpt=args[1].basic_info.excerpt;
+			const frontMatter = args[1].basic_info.frontMatter;
 			const note = await joplin.data.get(['notes', args[0]], { fields: ['id', 'title', 'body'] });
+			// alert(title);alert(tags);alert("cat"+categories);alert("exc"+excerpt);alert(frontMatter);
 			await fs.mkdirp(path.join(dest_Path, 'source', '_posts'));//markdown
 			await fs.mkdirp(path.join(dest_Path, 'source' , 'img'));//static
 			const resourceDestPath = (path.join(dest_Path, 'source' , 'img'));
 			await resourceFetcher(note, resourceDir, resourceDestPath, "hexo");
-			note.body = frontMatterCreator(note.title,title,tags,categories,excerpt,frontMatter); 
-								+ '\n' + note.body;//add hexo required frontMatter//add hexo required frontMatter
+			note.body = frontMatterCreator(note.title,title,tags,categories,excerpt,frontMatter)+ '\n' + note.body;
+								//add hexo required frontMatter//add hexo required frontMatter
 			fs.writeFile(path.join(dest_Path, 'source', '_posts', `${note.title}.md`), note.body);
 
 	}});
