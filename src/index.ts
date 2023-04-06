@@ -1,7 +1,7 @@
 
 import joplin from 'api';
 import { MenuItemLocation } from 'api/types';
-
+import { fstat } from 'fs';
 const fs = (joplin as any).require('fs-extra');
 const path = require('path');
 
@@ -48,6 +48,16 @@ function frontMatterCreator(notetitle: string,newtitle: string, tags, categories
 	alert(frontMatter);
     return frontMatter;
 }
+function parseFront(input: string): string | undefined {
+	const startMarkerIndex = input.indexOf("---");
+	const endMarkerIndex = input.indexOf("---", startMarkerIndex + 3);
+  
+	if (startMarkerIndex !== -1 && endMarkerIndex !== -1) {
+	  return input.substring(startMarkerIndex, endMarkerIndex+3).trim();
+	} else {
+	  return undefined;
+	}
+  }
 //---------collecting and transfering the static file
 async function resourceFetcher(note, resourceDir: string, destPath: string , ssg ) {
 	const { items } = await joplin.data.get(['notes', note.id, 'resources'] , { fields: ['id', 'title', 'file_extension']} );
@@ -207,10 +217,18 @@ joplin.plugins.register({
 			await fs.mkdirp(path.join(dest_Path, 'source' , 'img'));//static
 			const resourceDestPath = (path.join(dest_Path, 'source' , 'img'));
 			await resourceFetcher(note, resourceDir, resourceDestPath, "hexo");
-			note.body = frontMatterCreator(note.title,title,tags,categories,excerpt,frontMatter)+ '\n' + note.body;
-								//add hexo required frontMatter//add hexo required frontMatter
-			fs.writeFile(path.join(dest_Path, 'source', '_posts', `${note.title}.md`), note.body);
-
+			
+								//add hexo required frontMatte
+			//exist
+			let front=frontMatterCreator(note.title,title,tags,categories,excerpt,frontMatter);
+			const notePath=path.join(dest_Path, 'source', '_posts', `${note.title}.md`);
+			if(fs.existsSync(notePath)){
+				const fileContents=fs.readFileSync(notePath,'utf-8');
+				const tmp=parseFront(fileContents);
+				if(tmp!=undefined) front=tmp;//use old frontmatter
+			}
+			note.body = front+ '\n' + note.body;
+			fs.writeFile(notePath,note.body);
 	}});
 	await joplin.commands.register({
 			name: 'staticSiteExporterDialog_Note',
